@@ -39,8 +39,6 @@
 
         .tip-bubble {
             position: absolute;
-            width: clamp(100px, 30vw, 140px);
-            height: clamp(40px, 12vw, 60px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -57,6 +55,7 @@
                 left 1.5s ease-out,
                 top 1.5s ease-out;
             pointer-events: none;
+            /* width/height will be set by JS */
         }
 
         .tip-bubble.show {
@@ -104,8 +103,8 @@ function createSnowflakes() {
     }
 }
 
-// ========== 爱心轨迹生成 ==========
-function generateHeartPoints(count) {
+// ========== 精确生成爱心并计算边界 ==========
+function generateHeartData(count) {
     const points = [];
     for (let i = 0; i < count; i++) {
         const t = (i / count) * 2 * Math.PI;
@@ -113,7 +112,27 @@ function generateHeartPoints(count) {
         const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
         points.push({ x, y });
     }
-    return points;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    for (const p of points) {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+    }
+
+    return {
+        points,
+        bounds: {
+            minX, maxX,
+            minY, maxY,
+            width: maxX - minX,
+            height: maxY - minY,
+            centerX: (minX + maxX) / 2,
+            centerY: (minY + maxY) / 2
+        }
+    };
 }
 
 // ========== 提示语和颜色 ==========
@@ -125,7 +144,7 @@ const tips = [
 
 const bgColors = ['#ffc0cb', '#87ceeb', '#90ee90', '#e6e6fa', '#ffffe0', '#dda0dd'];
 
-// ========== 创建气泡（使用正方形幕布逻辑） ==========
+// ========== 创建气泡（精确居中 + 响应式尺寸） ==========
 function createTip(x, y, text, fromLeft = true) {
     const bubble = document.createElement('div');
     bubble.className = 'tip-bubble';
@@ -134,37 +153,40 @@ function createTip(x, y, text, fromLeft = true) {
 
     const winW = window.innerWidth;
     const winH = window.innerHeight;
-    const canvasSize = Math.min(winW, winH); // 正方形幕布边长
 
-    // 幕布中心（即屏幕中心）
+    // 响应式气泡尺寸
+    const baseScale = Math.min(winW, winH) / 600;
+    const BUBBLE_WIDTH = Math.max(90, 140 * baseScale);
+    const BUBBLE_HEIGHT = Math.max(40, 60 * baseScale);
+    bubble.style.width = `${BUBBLE_WIDTH}px`;
+    bubble.style.height = `${BUBBLE_HEIGHT}px`;
+
     const centerX = winW / 2;
     const centerY = winH / 2;
 
-    // 心形原始尺寸（固定数学范围）
-    const heartWidth = 32;   // x: -16 ~ +16
-    const heartHeight = 25;  // y: ~ -20 ~ +5
+    // 使用全局缓存的心形数据（由主逻辑提前生成）
+    const heartData = window.__HEART_DATA__;
+    if (!heartData) return;
 
-    // 绘图区域占幕布的 70%，留出安全边距
-    const drawArea = canvasSize * 0.7;
+    const { bounds } = heartData;
+    const safeArea = Math.min(winW, winH) * 0.82; // 留 18% 安全边距
+    const scale = safeArea / Math.max(bounds.width, bounds.height);
 
-    // 统一缩放因子（以心形最大维度为基准，保持比例）
-    const maxHeartDim = Math.max(heartWidth, heartHeight); // 32
-    const scale = drawArea / maxHeartDim;
+    // 相对于心形真实中心偏移
+    const offsetX = (x - bounds.centerX) * scale;
+    const offsetY = (y - bounds.centerY) * scale;
 
-    // 计算最终屏幕坐标
-    let finalX = centerX + x * scale;
-    let finalY = centerY + y * scale;
+    let finalX = centerX + offsetX;
+    let finalY = centerY + offsetY;
 
-    // 边界保护（防止气泡超出可视区）
-    const BUBBLE_WIDTH = 140;
-    const BUBBLE_HEIGHT = 60;
-    const margin = 30;
+    // 边界保护
+    const margin = 20;
     finalX = Math.max(margin, Math.min(winW - margin - BUBBLE_WIDTH, finalX));
     finalY = Math.max(margin, Math.min(winH - margin - BUBBLE_HEIGHT, finalY));
 
-    // 初始飞入位置（从屏幕外）
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const buffer = isMobile ? Math.max(100, winW * 0.3) : 200;
+    // 初始飞入位置
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+    const buffer = isMobile ? Math.max(100, winW * 0.35) : 220;
     const startX = fromLeft ? -buffer : winW + buffer;
     const startY = Math.random() * winH;
 
@@ -172,7 +194,6 @@ function createTip(x, y, text, fromLeft = true) {
     bubble.style.top = `${startY}px`;
     document.body.appendChild(bubble);
 
-    // 触发动画：从外飞入目标位置
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             bubble.classList.add('show');
@@ -181,7 +202,6 @@ function createTip(x, y, text, fromLeft = true) {
         });
     });
 
-    // 11秒后淡出并移除
     setTimeout(() => {
         if (bubble.parentNode) {
             bubble.style.opacity = '0';
@@ -199,14 +219,16 @@ function createTip(x, y, text, fromLeft = true) {
 (function main() {
     createSnowflakes();
 
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const POINTS_COUNT = isMobile ? 65 : 80; // 提升移动端点数
-    const DELAY_BETWEEN_POINTS = isMobile ? 200 : 120;
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+    const POINTS_COUNT = isMobile ? 70 : 80;
+    const DELAY_BETWEEN_POINTS = isMobile ? 180 : 120;
     const EXTRA_WAIT_AFTER_ANIMATION = 12500;
 
-    const heartPoints = generateHeartPoints(POINTS_COUNT);
+    // 生成带精确边界的爱心数据，并缓存
+    const heartData = generateHeartData(POINTS_COUNT);
+    window.__HEART_DATA__ = heartData;
 
-    heartPoints.forEach((point, index) => {
+    heartData.points.forEach((point, index) => {
         setTimeout(() => {
             if (!document.body) return;
             const tip = tips[Math.floor(Math.random() * tips.length)];
