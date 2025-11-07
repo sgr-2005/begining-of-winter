@@ -53,7 +53,7 @@
             transform: scale(1);
         }
 
-        /* 新增：汇聚动画 */
+        /* 汇聚动画 */
         .tip-bubble.converge {
             transition: left 1.2s ease-out, top 1.2s ease-out, opacity 1.2s ease-out !important;
             opacity: 0 !important;
@@ -73,7 +73,7 @@
             background: linear-gradient(135deg, #ff9a9e, #fad0c4);
             border-radius: 12px;
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-            z-index: 10001; /* 更高 */
+            z-index: 10001;
             opacity: 0;
             left: 50%;
             top: 50%;
@@ -162,7 +162,6 @@ function createTip() {
     bubble.textContent = tip;
     bubble.style.backgroundColor = bg;
 
-    // 初始随机位置（必须设 left/top 才能过渡）
     const x = Math.random() * (SCREEN_W - 120);
     const y = Math.random() * (SCREEN_H - 60);
     bubble.style.left = `${x}px`;
@@ -190,47 +189,81 @@ const interval = setInterval(() => {
     if (count >= total) {
         clearInterval(interval);
 
-        // ===== 汇聚阶段 =====
-        const centerX = (SCREEN_W - 120) / 2;
-        const centerY = (SCREEN_H - 60) / 2;
-
-        // 给所有气泡添加 converge 类：向中心移动 + 淡出
-        allBubbles.forEach(bubble => {
-            bubble.classList.add('converge');
-            bubble.style.left = `${centerX}px`;
-            bubble.style.top = `${centerY}px`;
-        });
-
-        // 等待汇聚动画结束（1.2秒）
+        // 等待 1 秒后再开始汇聚
         setTimeout(() => {
-            // 移除所有普通气泡
-            allBubbles.forEach(b => {
-                if (b.parentNode) b.remove();
+            const centerX = (SCREEN_W - 120) / 2;
+            const centerY = (SCREEN_H - 60) / 2;
+
+            allBubbles.forEach(bubble => {
+                bubble.classList.add('converge');
+                bubble.style.left = `${centerX}px`;
+                bubble.style.top = `${centerY}px`;
             });
 
-            // 显示最终弹窗
-            const finalBubble = document.createElement('div');
-            finalBubble.className = 'final-bubble';
-            finalBubble.textContent = '立冬快乐呀！';
-            document.body.appendChild(finalBubble);
-
-            // 显示动画
-            setTimeout(() => finalBubble.classList.add('show'), 10);
-
-            // 1.5秒后隐藏
+            // 等待汇聚动画结束（1.2秒）
             setTimeout(() => {
-                finalBubble.classList.add('hide');
-                setTimeout(() => {
-                    if (finalBubble.parentNode) finalBubble.remove();
-                }, 500);
-            }, 1500);
-        }, 1200); // 与 CSS transition 时间一致
+                allBubbles.forEach(b => {
+                    if (b.parentNode) b.remove();
+                });
 
+                const finalBubble = document.createElement('div');
+                finalBubble.className = 'final-bubble';
+                finalBubble.textContent = '立冬快乐呀！';
+                document.body.appendChild(finalBubble);
+
+                setTimeout(() => finalBubble.classList.add('show'), 10);
+
+                // 1.5秒后开始隐藏
+                setTimeout(() => {
+                    finalBubble.classList.add('hide');
+                    setTimeout(() => {
+                        if (finalBubble.parentNode) finalBubble.remove();
+
+                        // ✅ 立冬弹窗完全消失后，等 0.5 秒，显示“感谢观看”
+                        setTimeout(() => {
+                            const thankText = '感谢观看';
+                            const container = document.createElement('div');
+                            container.style.position = 'absolute';
+                            container.style.left = '50%';
+                            container.style.top = '50%';
+                            container.style.transform = 'translate(-50%, -50%)';
+                            container.style.display = 'flex';
+                            container.style.justifyContent = 'center';
+                            container.style.alignItems = 'center';
+                            container.style.zIndex = '10002';
+                            container.style.fontSize = '28px';
+                            container.style.fontWeight = 'bold';
+                            container.style.color = '#ff6b9d';
+                            container.style.textShadow = '0 2px 6px rgba(0,0,0,0.2)';
+                            container.style.gap = '8px'; // 字间距
+                            document.body.appendChild(container);
+
+                            // 逐字添加
+                            thankText.split('').forEach((char, index) => {
+                                const span = document.createElement('span');
+                                span.textContent = char;
+                                span.style.opacity = '0';
+                                span.style.transform = 'scale(0.5)';
+                                span.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out';
+                                container.appendChild(span);
+
+                                // 延迟出现
+                                setTimeout(() => {
+                                    span.style.opacity = '1';
+                                    span.style.transform = 'scale(1)';
+                                }, index * 300); // 每个字间隔 300ms
+                            });
+                        }, 500); // ←←← 等 0.5 秒
+
+                    }, 500);
+                }, 1500);
+            }, 1200);
+        }, 1000);
         return;
     }
     createTip();
     count++;
-}, 100);
+}, 60);
 </script>
 
 </body>
