@@ -125,45 +125,54 @@ const tips = [
 
 const bgColors = ['#ffc0cb', '#87ceeb', '#90ee90', '#e6e6fa', '#ffffe0', '#dda0dd'];
 
-// ========== 创建气泡（关键：确保从屏幕外飞入） ==========
+// ========== 创建气泡（使用正方形幕布逻辑） ==========
 function createTip(x, y, text, fromLeft = true) {
     const bubble = document.createElement('div');
     bubble.className = 'tip-bubble';
     bubble.textContent = text;
     bubble.style.backgroundColor = bgColors[Math.floor(Math.random() * bgColors.length)];
 
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    const canvasSize = Math.min(winW, winH); // 正方形幕布边长
 
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    let scale;
-    if (isMobile) {
-        const minSide = Math.min(window.innerWidth, window.innerHeight);
-        scale = minSide * 0.035;
-    } else {
-        scale = Math.min(25, window.innerHeight * 0.02);
-    }
+    // 幕布中心（即屏幕中心）
+    const centerX = winW / 2;
+    const centerY = winH / 2;
 
+    // 心形原始尺寸（固定数学范围）
+    const heartWidth = 32;   // x: -16 ~ +16
+    const heartHeight = 25;  // y: ~ -20 ~ +5
+
+    // 绘图区域占幕布的 70%，留出安全边距
+    const drawArea = canvasSize * 0.7;
+
+    // 统一缩放因子（以心形最大维度为基准，保持比例）
+    const maxHeartDim = Math.max(heartWidth, heartHeight); // 32
+    const scale = drawArea / maxHeartDim;
+
+    // 计算最终屏幕坐标
     let finalX = centerX + x * scale;
     let finalY = centerY + y * scale;
 
+    // 边界保护（防止气泡超出可视区）
     const BUBBLE_WIDTH = 140;
     const BUBBLE_HEIGHT = 60;
-    const margin = 40;
-    finalX = Math.max(margin, Math.min(window.innerWidth - margin - BUBBLE_WIDTH, finalX));
-    finalY = Math.max(margin, Math.min(window.innerHeight - margin - BUBBLE_HEIGHT, finalY));
+    const margin = 30;
+    finalX = Math.max(margin, Math.min(winW - margin - BUBBLE_WIDTH, finalX));
+    finalY = Math.max(margin, Math.min(winH - margin - BUBBLE_HEIGHT, finalY));
 
-    const buffer = isMobile ? Math.max(100, window.innerWidth * 0.3) : 200;
-    const startX = fromLeft ? -buffer : window.innerWidth + buffer;
-    const startY = Math.random() * window.innerHeight;
+    // 初始飞入位置（从屏幕外）
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const buffer = isMobile ? Math.max(100, winW * 0.3) : 200;
+    const startX = fromLeft ? -buffer : winW + buffer;
+    const startY = Math.random() * winH;
 
-    // 初始位置：屏幕外
     bubble.style.left = `${startX}px`;
     bubble.style.top = `${startY}px`;
-
     document.body.appendChild(bubble);
 
-    // ✅ 关键修复：双 requestAnimationFrame 确保动画从外飞入
+    // 触发动画：从外飞入目标位置
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             bubble.classList.add('show');
@@ -191,7 +200,7 @@ function createTip(x, y, text, fromLeft = true) {
     createSnowflakes();
 
     const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const POINTS_COUNT = isMobile ? 40 : 80;
+    const POINTS_COUNT = isMobile ? 65 : 80; // 提升移动端点数
     const DELAY_BETWEEN_POINTS = isMobile ? 200 : 120;
     const EXTRA_WAIT_AFTER_ANIMATION = 12500;
 
