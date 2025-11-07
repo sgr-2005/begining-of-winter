@@ -43,7 +43,6 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            font-size: clamp(12px, 3.5vw, 14px);
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             z-index: 9999;
@@ -55,7 +54,7 @@
                 left 1.5s ease-out,
                 top 1.5s ease-out;
             pointer-events: none;
-            /* width/height will be set by JS */
+            /* width/height set by JS */
         }
 
         .tip-bubble.show {
@@ -69,7 +68,7 @@
 <script>
 // ========== 雪花背景 ==========
 function createSnowflakes() {
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
     const snowflakeCount = isMobile ? 30 : 60;
 
     for (let i = 0; i < snowflakeCount; i++) {
@@ -103,8 +102,8 @@ function createSnowflakes() {
     }
 }
 
-// ========== 精确生成爱心并计算边界 ==========
-function generateHeartData(count) {
+// ========== 生成原始爱心点 ==========
+function generateRawHeartPoints(count) {
     const points = [];
     for (let i = 0; i < count; i++) {
         const t = (i / count) * 2 * Math.PI;
@@ -112,7 +111,11 @@ function generateHeartData(count) {
         const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
         points.push({ x, y });
     }
+    return points;
+}
 
+// ========== 归一化到 [-1, 1] ==========
+function normalizeHeartPoints(points) {
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
     for (const p of points) {
@@ -122,17 +125,14 @@ function generateHeartData(count) {
         maxY = Math.max(maxY, p.y);
     }
 
-    return {
-        points,
-        bounds: {
-            minX, maxX,
-            minY, maxY,
-            width: maxX - minX,
-            height: maxY - minY,
-            centerX: (minX + maxX) / 2,
-            centerY: (minY + maxY) / 2
-        }
-    };
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const maxDim = Math.max(width, height);
+
+    return points.map(p => ({
+        x: (p.x - (minX + maxX) / 2) / (maxDim / 2),
+        y: (p.y - (minY + maxY) / 2) / (maxDim / 2)
+    }));
 }
 
 // ========== 提示语和颜色 ==========
@@ -144,8 +144,11 @@ const tips = [
 
 const bgColors = ['#ffc0cb', '#87ceeb', '#90ee90', '#e6e6fa', '#ffffe0', '#dda0dd'];
 
-// ========== 创建气泡（精确居中 + 响应式尺寸） ==========
-function createTip(x, y, text, fromLeft = true) {
+// ========== 气泡宽高比（140:60） ==========
+const BUBBLE_ASPECT_RATIO = 140 / 60; // ≈2.333
+
+// ========== 创建气泡 ==========
+function createTip(normX, normY, text, fromLeft = true) {
     const bubble = document.createElement('div');
     bubble.className = 'tip-bubble';
     bubble.textContent = text;
@@ -153,42 +156,37 @@ function createTip(x, y, text, fromLeft = true) {
 
     const winW = window.innerWidth;
     const winH = window.innerHeight;
+    const canvasSize = Math.min(winW, winH);
 
-    // 响应式气泡尺寸
-    const baseScale = Math.min(winW, winH) / 600;
-    const BUBBLE_WIDTH = Math.max(90, 140 * baseScale);
-    const BUBBLE_HEIGHT = Math.max(40, 60 * baseScale);
+    // 气泡宽度 = 幕布 1/6，高度按比例
+    const BUBBLE_WIDTH = canvasSize / 6;
+    const BUBBLE_HEIGHT = BUBBLE_WIDTH / BUBBLE_ASPECT_RATIO;
+
     bubble.style.width = `${BUBBLE_WIDTH}px`;
     bubble.style.height = `${BUBBLE_HEIGHT}px`;
 
-    const centerX = winW / 2;
-    const centerY = winH / 2;
+    // ✅ 字体大小 = 气泡高度的 1/4，但不低于 12px
+    const fontSize = Math.max(12, BUBBLE_HEIGHT / 4);
+    bubble.style.fontSize = `${fontSize}px`;
 
-    // 使用全局缓存的心形数据（由主逻辑提前生成）
-    const heartData = window.__HEART_DATA__;
-    if (!heartData) return;
+    // 幕布偏移
+    const canvasOffsetX = (winW - canvasSize) / 2;
+    const canvasOffsetY = (winH - canvasSize) / 2;
 
-    const { bounds } = heartData;
-    const safeArea = Math.min(winW, winH) * 0.82; // 留 18% 安全边距
-    const scale = safeArea / Math.max(bounds.width, bounds.height);
+    // 安全绘制区（留 15% 边距）
+    const safeArea = canvasSize * 0.85;
+    const drawRadius = safeArea / 2;
 
-    // 相对于心形真实中心偏移
-    const offsetX = (x - bounds.centerX) * scale;
-    const offsetY = (y - bounds.centerY) * scale;
+    const drawX = canvasSize / 2 + normX * drawRadius;
+    const drawY = canvasSize / 2 + normY * drawRadius;
 
-    let finalX = centerX + offsetX;
-    let finalY = centerY + offsetY;
+    let finalX = canvasOffsetX + drawX - BUBBLE_WIDTH / 2;
+    let finalY = canvasOffsetY + drawY - BUBBLE_HEIGHT / 2;
 
-    // 边界保护
-    const margin = 20;
-    finalX = Math.max(margin, Math.min(winW - margin - BUBBLE_WIDTH, finalX));
-    finalY = Math.max(margin, Math.min(winH - margin - BUBBLE_HEIGHT, finalY));
-
-    // 初始飞入位置
-    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-    const buffer = isMobile ? Math.max(100, winW * 0.35) : 220;
-    const startX = fromLeft ? -buffer : winW + buffer;
-    const startY = Math.random() * winH;
+    // 飞入起点
+    const buffer = canvasSize * 0.4;
+    const startX = fromLeft ? (canvasOffsetX - buffer) : (canvasOffsetX + canvasSize + buffer);
+    const startY = canvasOffsetY + Math.random() * canvasSize;
 
     bubble.style.left = `${startX}px`;
     bubble.style.top = `${startY}px`;
@@ -207,9 +205,7 @@ function createTip(x, y, text, fromLeft = true) {
             bubble.style.opacity = '0';
             bubble.style.transition = 'opacity 0.4s';
             setTimeout(() => {
-                if (bubble.parentNode) {
-                    bubble.parentNode.removeChild(bubble);
-                }
+                bubble.parentNode?.removeChild(bubble);
             }, 400);
         }
     }, 11000);
@@ -224,11 +220,10 @@ function createTip(x, y, text, fromLeft = true) {
     const DELAY_BETWEEN_POINTS = isMobile ? 180 : 120;
     const EXTRA_WAIT_AFTER_ANIMATION = 12500;
 
-    // 生成带精确边界的爱心数据，并缓存
-    const heartData = generateHeartData(POINTS_COUNT);
-    window.__HEART_DATA__ = heartData;
+    const rawPoints = generateRawHeartPoints(POINTS_COUNT);
+    const normalizedPoints = normalizeHeartPoints(rawPoints);
 
-    heartData.points.forEach((point, index) => {
+    normalizedPoints.forEach((point, index) => {
         setTimeout(() => {
             if (!document.body) return;
             const tip = tips[Math.floor(Math.random() * tips.length)];
