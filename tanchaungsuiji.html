@@ -32,13 +32,11 @@
 
         .tip-bubble {
             position: absolute;
-            width: 120px;
-            height: 60px;
+            /* width/height/font-size 将由 JS 动态设置 */
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            font-size: 14px;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             z-index: 9999;
@@ -53,7 +51,6 @@
             transform: scale(1);
         }
 
-        /* 汇聚动画 */
         .tip-bubble.converge {
             transition: left 1.2s ease-out, top 1.2s ease-out, opacity 1.2s ease-out !important;
             opacity: 0 !important;
@@ -61,13 +58,11 @@
 
         .final-bubble {
             position: absolute;
-            width: 160px;
-            height: 70px;
+            /* width/height/font-size 将由 JS 动态设置 */
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            font-size: 16px;
             font-weight: bold;
             color: #fff;
             background: linear-gradient(135deg, #ff9a9e, #fad0c4);
@@ -95,6 +90,21 @@
 <body>
 
 <script>
+// ========== 动态计算气泡尺寸 ==========
+const SCREEN_W = window.innerWidth;
+const SCREEN_H = window.innerHeight;
+const CANVAS_SIZE = Math.min(SCREEN_W, SCREEN_H);
+
+// 基础比例：参考 140:60 → 宽高比 ≈ 2.333
+const BUBBLE_WIDTH = CANVAS_SIZE / 6;
+const BUBBLE_HEIGHT = BUBBLE_WIDTH * (60 / 140); // = BUBBLE_WIDTH / (140/60)
+const FONT_SIZE = Math.max(12, BUBBLE_HEIGHT / 4);
+
+// 最终气泡（稍大）
+const FINAL_BUBBLE_WIDTH = CANVAS_SIZE / 5;
+const FINAL_BUBBLE_HEIGHT = FINAL_BUBBLE_WIDTH * (70 / 160); // 保持 160:70 比例
+const FINAL_FONT_SIZE = Math.max(14, FINAL_BUBBLE_HEIGHT / 4.4); // ≈16px when 70px high
+
 // ========== 雪花背景 ==========
 function createSnowflakes() {
     const snowContainer = document.body;
@@ -146,8 +156,6 @@ const bgColors = [
     '#f0fff0', '#fff0f5', '#fdf5e6'
 ];
 
-const SCREEN_W = window.innerWidth;
-const SCREEN_H = window.innerHeight;
 const allBubbles = [];
 
 function createTip() {
@@ -162,8 +170,13 @@ function createTip() {
     bubble.textContent = tip;
     bubble.style.backgroundColor = bg;
 
-    const x = Math.random() * (SCREEN_W - 120);
-    const y = Math.random() * (SCREEN_H - 60);
+    // ✅ 使用动态尺寸
+    bubble.style.width = `${BUBBLE_WIDTH}px`;
+    bubble.style.height = `${BUBBLE_HEIGHT}px`;
+    bubble.style.fontSize = `${FONT_SIZE}px`;
+
+    const x = Math.random() * (SCREEN_W - BUBBLE_WIDTH);
+    const y = Math.random() * (SCREEN_H - BUBBLE_HEIGHT);
     bubble.style.left = `${x}px`;
     bubble.style.top = `${y}px`;
 
@@ -189,10 +202,10 @@ const interval = setInterval(() => {
     if (count >= total) {
         clearInterval(interval);
 
-        // 等待 1 秒后再开始汇聚
         setTimeout(() => {
-            const centerX = (SCREEN_W - 120) / 2;
-            const centerY = (SCREEN_H - 60) / 2;
+            // ✅ 汇聚到屏幕中心（减去动态宽高的一半）
+            const centerX = (SCREEN_W - BUBBLE_WIDTH) / 2;
+            const centerY = (SCREEN_H - BUBBLE_HEIGHT) / 2;
 
             allBubbles.forEach(bubble => {
                 bubble.classList.add('converge');
@@ -200,26 +213,27 @@ const interval = setInterval(() => {
                 bubble.style.top = `${centerY}px`;
             });
 
-            // 等待汇聚动画结束（1.2秒）
             setTimeout(() => {
-                allBubbles.forEach(b => {
-                    if (b.parentNode) b.remove();
-                });
+                allBubbles.forEach(b => b.remove());
 
                 const finalBubble = document.createElement('div');
                 finalBubble.className = 'final-bubble';
                 finalBubble.textContent = '立冬快乐呀！';
+
+                // ✅ 设置最终气泡动态尺寸
+                finalBubble.style.width = `${FINAL_BUBBLE_WIDTH}px`;
+                finalBubble.style.height = `${FINAL_BUBBLE_HEIGHT}px`;
+                finalBubble.style.fontSize = `${FINAL_FONT_SIZE}px`;
+
                 document.body.appendChild(finalBubble);
 
                 setTimeout(() => finalBubble.classList.add('show'), 10);
 
-                // 1.5秒后开始隐藏
                 setTimeout(() => {
                     finalBubble.classList.add('hide');
                     setTimeout(() => {
-                        if (finalBubble.parentNode) finalBubble.remove();
+                        finalBubble.remove();
 
-                        // ✅ 立冬弹窗完全消失后，等 0.5 秒，显示“感谢观看”
                         setTimeout(() => {
                             const thankText = '感谢观看';
                             const container = document.createElement('div');
@@ -231,14 +245,15 @@ const interval = setInterval(() => {
                             container.style.justifyContent = 'center';
                             container.style.alignItems = 'center';
                             container.style.zIndex = '10002';
-                            container.style.fontSize = '28px';
+                            // “感谢观看”字号也按比例缩放（可选）
+                            const THANK_FONT_SIZE = Math.max(24, CANVAS_SIZE * 0.05);
+                            container.style.fontSize = `${THANK_FONT_SIZE}px`;
                             container.style.fontWeight = 'bold';
                             container.style.color = '#ff6b9d';
                             container.style.textShadow = '0 2px 6px rgba(0,0,0,0.2)';
-                            container.style.gap = '8px'; // 字间距
+                            container.style.gap = '8px';
                             document.body.appendChild(container);
 
-                            // 逐字添加
                             thankText.split('').forEach((char, index) => {
                                 const span = document.createElement('span');
                                 span.textContent = char;
@@ -246,15 +261,12 @@ const interval = setInterval(() => {
                                 span.style.transform = 'scale(0.5)';
                                 span.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out';
                                 container.appendChild(span);
-
-                                // 延迟出现
                                 setTimeout(() => {
                                     span.style.opacity = '1';
                                     span.style.transform = 'scale(1)';
-                                }, index * 300); // 每个字间隔 300ms
+                                }, index * 300);
                             });
-                        }, 500); // ←←← 等 0.5 秒
-
+                        }, 500);
                     }, 500);
                 }, 1500);
             }, 1200);
