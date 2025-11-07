@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>给小怡的心意</title>
     <style>
         * {
@@ -17,9 +17,9 @@
             height: 100vh;
             width: 100vw;
             position: relative;
+            touch-action: none;
         }
 
-        /* 淡出过渡效果 */
         body.fade-out {
             opacity: 0;
             pointer-events: none;
@@ -29,7 +29,7 @@
         .snowflake {
             position: absolute;
             color: #fff;
-            font-size: 16px;
+            font-size: clamp(8px, 2.5vw, 16px);
             top: -10px;
             user-select: none;
             pointer-events: none;
@@ -39,19 +39,23 @@
 
         .tip-bubble {
             position: absolute;
-            width: 140px;
-            height: 60px;
+            width: clamp(100px, 30vw, 140px);
+            height: clamp(40px, 12vw, 60px);
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            font-size: 14px;
+            font-size: clamp(12px, 3.5vw, 14px);
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             z-index: 9999;
             opacity: 0;
             transform: scale(0.8);
-            transition: opacity 0.4s, transform 0.4s, left 1.5s ease-out, top 1.5s ease-out;
+            transition: 
+                opacity 0.4s,
+                transform 0.4s,
+                left 1.5s ease-out,
+                top 1.5s ease-out;
             pointer-events: none;
         }
 
@@ -66,8 +70,8 @@
 <script>
 // ========== 雪花背景 ==========
 function createSnowflakes() {
-    const snowContainer = document.body;
-    const snowflakeCount = 60;
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const snowflakeCount = isMobile ? 30 : 60;
 
     for (let i = 0; i < snowflakeCount; i++) {
         const snow = document.createElement('div');
@@ -82,7 +86,7 @@ function createSnowflakes() {
         const duration = 5 + Math.random() * 8;
         const delay = Math.random() * 5;
         snow.style.animation = `fall ${duration}s linear ${delay}s infinite`;
-        snowContainer.appendChild(snow);
+        document.body.appendChild(snow);
     }
 
     if (!document.getElementById('snow-style')) {
@@ -112,7 +116,7 @@ function generateHeartPoints(count) {
     return points;
 }
 
-// ========== 创建提醒气泡 ==========
+// ========== 提示语和颜色 ==========
 const tips = [
     '小怡我想你啦~', '小怡多喝热水哦~', '小怡天冷加衣~',
     '小怡早点睡觉~', '小怡要开心呀~', '小怡记得吃饭~',
@@ -121,6 +125,7 @@ const tips = [
 
 const bgColors = ['#ffc0cb', '#87ceeb', '#90ee90', '#e6e6fa', '#ffffe0', '#dda0dd'];
 
+// ========== 创建气泡（关键：确保从屏幕外飞入） ==========
 function createTip(x, y, text, fromLeft = true) {
     const bubble = document.createElement('div');
     bubble.className = 'tip-bubble';
@@ -129,27 +134,45 @@ function createTip(x, y, text, fromLeft = true) {
 
     const centerX = window.innerWidth / 2;
     const centerY = window.innerHeight / 2;
-    const scaleX = 15;
-    const scaleY = 15;
 
-    let finalX = centerX + x * scaleX;
-    let finalY = centerY + y * scaleY;
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    let scale;
+    if (isMobile) {
+        const minSide = Math.min(window.innerWidth, window.innerHeight);
+        scale = minSide * 0.035;
+    } else {
+        scale = Math.min(25, window.innerHeight * 0.02);
+    }
 
-    const startX = fromLeft ? -150 : window.innerWidth + 150;
+    let finalX = centerX + x * scale;
+    let finalY = centerY + y * scale;
+
+    const BUBBLE_WIDTH = 140;
+    const BUBBLE_HEIGHT = 60;
+    const margin = 40;
+    finalX = Math.max(margin, Math.min(window.innerWidth - margin - BUBBLE_WIDTH, finalX));
+    finalY = Math.max(margin, Math.min(window.innerHeight - margin - BUBBLE_HEIGHT, finalY));
+
+    const buffer = isMobile ? Math.max(100, window.innerWidth * 0.3) : 200;
+    const startX = fromLeft ? -buffer : window.innerWidth + buffer;
     const startY = Math.random() * window.innerHeight;
 
+    // 初始位置：屏幕外
     bubble.style.left = `${startX}px`;
     bubble.style.top = `${startY}px`;
 
     document.body.appendChild(bubble);
 
-    setTimeout(() => {
-        bubble.classList.add('show');
-        bubble.style.left = `${finalX}px`;
-        bubble.style.top = `${finalY}px`;
-    }, 10);
+    // ✅ 关键修复：双 requestAnimationFrame 确保动画从外飞入
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            bubble.classList.add('show');
+            bubble.style.left = `${finalX}px`;
+            bubble.style.top = `${finalY}px`;
+        });
+    });
 
-    // 每个气泡 11 秒后开始淡出，11.4 秒后移除
+    // 11秒后淡出并移除
     setTimeout(() => {
         if (bubble.parentNode) {
             bubble.style.opacity = '0';
@@ -167,9 +190,10 @@ function createTip(x, y, text, fromLeft = true) {
 (function main() {
     createSnowflakes();
 
-    const POINTS_COUNT = 80;
-    const DELAY_BETWEEN_POINTS = 120; // 每个气泡间隔 120ms
-    const EXTRA_WAIT_AFTER_ANIMATION = 12500; // 所有气泡播完后再等 12.5 秒
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const POINTS_COUNT = isMobile ? 40 : 80;
+    const DELAY_BETWEEN_POINTS = isMobile ? 200 : 120;
+    const EXTRA_WAIT_AFTER_ANIMATION = 12500;
 
     const heartPoints = generateHeartPoints(POINTS_COUNT);
 
@@ -184,17 +208,17 @@ function createTip(x, y, text, fromLeft = true) {
 
     const totalDuration = (POINTS_COUNT - 1) * DELAY_BETWEEN_POINTS + EXTRA_WAIT_AFTER_ANIMATION;
 
-    // 所有动画结束后，淡出并跳转
     setTimeout(() => {
         const mainBody = document.getElementById('mainBody');
-        mainBody.classList.add('fade-out');
-        setTimeout(() => {
-            // 确保只在当前页面是 tanchuangaixin.html 时跳转（防止本地 file:// 路径问题）
-            const path = window.location.pathname.split('/').pop();
-            if (path === 'tanchuangaixin.html') {
-                window.location.href = 'tanchaungsuiji.html';
-            }
-        }, 600); // 必须 ≥ CSS transition 时间
+        if (mainBody) {
+            mainBody.classList.add('fade-out');
+            setTimeout(() => {
+                const path = window.location.pathname.split('/').pop();
+                if (path === 'tanchuangaixin.html') {
+                    window.location.href = 'tanchaungsuiji.html';
+                }
+            }, 600);
+        }
     }, totalDuration);
 })();
 </script>
