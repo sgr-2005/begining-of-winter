@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>给小怡的温馨提醒</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #f0f8ff;
+            overflow: hidden;
+            font-family: "Microsoft YaHei", sans-serif;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        .snowflake {
+            position: absolute;
+            color: #fff;
+            font-size: 16px;
+            top: -10px;
+            user-select: none;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0;
+        }
+
+        .tip-bubble {
+            position: absolute;
+            width: 120px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 14px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 9999;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+        }
+
+        .tip-bubble.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* 新增：汇聚动画 */
+        .tip-bubble.converge {
+            transition: left 1.2s ease-out, top 1.2s ease-out, opacity 1.2s ease-out !important;
+            opacity: 0 !important;
+        }
+
+        .final-bubble {
+            position: absolute;
+            width: 160px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            z-index: 10001; /* 更高 */
+            opacity: 0;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            transition: opacity 0.4s, transform 0.6s;
+        }
+
+        .final-bubble.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .final-bubble.hide {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0);
+        }
+    </style>
+</head>
+<body>
+
+<script>
+// ========== 雪花背景 ==========
+function createSnowflakes() {
+    const snowContainer = document.body;
+    const snowflakeCount = 80;
+
+    for (let i = 0; i < snowflakeCount; i++) {
+        const snow = document.createElement('div');
+        snow.className = 'snowflake';
+        snow.innerHTML = '❄️';
+
+        const left = Math.random() * 100;
+        snow.style.left = `${left}vw`;
+        const size = 8 + Math.random() * 12;
+        snow.style.fontSize = `${size}px`;
+
+        const duration = 5 + Math.random() * 8;
+        const delay = Math.random() * 5;
+        snow.style.animation = `fall ${duration}s linear ${delay}s infinite`;
+        snowContainer.appendChild(snow);
+    }
+
+    if (!document.getElementById('snow-style')) {
+        const style = document.createElement('style');
+        style.id = 'snow-style';
+        style.textContent = `
+            @keyframes fall {
+                0% { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+                10% { opacity: 0.9; }
+                90% { opacity: 0.7; }
+                100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// ========== 弹窗逻辑 ==========
+let isPaused = false;
+const tips = [
+    '小怡多喝热水哦~', '小怡记得看天气预报~', '小怡每天都要开开心心的~',
+    '小怡天凉了多穿点衣服~', '小怡记得每天都要想我呀~', '小怡我每天都在呀~',
+    '小怡我想你啦~', '小怡早点睡觉不许熬夜~', '小怡期待我们见面的那天~',
+    '小怡好好吃饭哦~', '小怡照顾好自己~', '小怡想我了就告诉我~'
+];
+
+const bgColors = [
+    '#ffc0cb', '#87ceeb', '#90ee90', '#e6e6fa', '#ffffe0',
+    '#dda0dd', '#ffa07a', '#ffe4c4', '#7fffd4', '#ffe4e1',
+    '#f0fff0', '#fff0f5', '#fdf5e6'
+];
+
+const SCREEN_W = window.innerWidth;
+const SCREEN_H = window.innerHeight;
+const allBubbles = [];
+
+function createTip() {
+    if (isPaused) return;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'tip-bubble';
+    
+    const tip = tips[Math.floor(Math.random() * tips.length)];
+    const bg = bgColors[Math.floor(Math.random() * bgColors.length)];
+    
+    bubble.textContent = tip;
+    bubble.style.backgroundColor = bg;
+
+    // 初始随机位置（必须设 left/top 才能过渡）
+    const x = Math.random() * (SCREEN_W - 120);
+    const y = Math.random() * (SCREEN_H - 60);
+    bubble.style.left = `${x}px`;
+    bubble.style.top = `${y}px`;
+
+    document.body.appendChild(bubble);
+    allBubbles.push(bubble);
+
+    setTimeout(() => bubble.classList.add('show'), 10);
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        isPaused = !isPaused;
+    }
+});
+
+// ========== 启动 ==========
+createSnowflakes();
+
+let count = 0;
+const total = 400;
+const interval = setInterval(() => {
+    if (count >= total) {
+        clearInterval(interval);
+
+        // ===== 汇聚阶段 =====
+        const centerX = (SCREEN_W - 120) / 2;
+        const centerY = (SCREEN_H - 60) / 2;
+
+        // 给所有气泡添加 converge 类：向中心移动 + 淡出
+        allBubbles.forEach(bubble => {
+            bubble.classList.add('converge');
+            bubble.style.left = `${centerX}px`;
+            bubble.style.top = `${centerY}px`;
+        });
+
+        // 等待汇聚动画结束（1.2秒）
+        setTimeout(() => {
+            // 移除所有普通气泡
+            allBubbles.forEach(b => {
+                if (b.parentNode) b.remove();
+            });
+
+            // 显示最终弹窗
+            const finalBubble = document.createElement('div');
+            finalBubble.className = 'final-bubble';
+            finalBubble.textContent = '立冬快乐呀！';
+            document.body.appendChild(finalBubble);
+
+            // 显示动画
+            setTimeout(() => finalBubble.classList.add('show'), 10);
+
+            // 1.5秒后隐藏
+            setTimeout(() => {
+                finalBubble.classList.add('hide');
+                setTimeout(() => {
+                    if (finalBubble.parentNode) finalBubble.remove();
+                }, 500);
+            }, 1500);
+        }, 1200); // 与 CSS transition 时间一致
+
+        return;
+    }
+    createTip();
+    count++;
+}, 100);
+</script>
+
+</body>
+</html>
