@@ -137,12 +137,15 @@ function normalizeHeartPoints(points) {
 
 // ========== 提示语和颜色 ==========
 const tips = [
-    '小怡我想你啦~', '小怡多喝热水哦~', '小怡天冷加衣~',
-    '小怡早点睡觉~', '小怡要开心呀~', '小怡记得吃饭~',
-    '小怡我一直在~', '小怡照顾好自己~', '小怡等你回消息~'
+    '小怡多喝热水哦~', '小怡记得看天气预报~', '小怡每天都要开开心心的~',
+        '小怡天凉了多穿点衣服~', '小怡记得每天都要想我呀~', '小怡我每天都在呀~',
+        '小怡我想你啦~', '小怡早点睡觉不许熬夜~', '小怡期待我们见面的那天~',
+        '小怡好好吃饭哦~', '小怡照顾好自己~', '小怡想我了就告诉我~','小怡等你回消息~'
 ];
 
-const bgColors = ['#ffc0cb', '#87ceeb', '#90ee90', '#e6e6fa', '#ffffe0', '#dda0dd'];
+const bgColors = ['#FFB6C1', '#87CEEB', '#90EE90', '#E6E6FA', '#FFFFE0',
+  '#DDA0DD', '#FF7F50', '#FFE4C4', '#7FFFD4', '#FFE4E1',
+  '#F0FFF0', '#FFF0F5', '#FDF5E6'];
 
 // ========== 气泡宽高比（140:60） ==========
 const BUBBLE_ASPECT_RATIO = 140 / 60; // ≈2.333
@@ -158,8 +161,8 @@ function createTip(normX, normY, text, fromLeft = true) {
     const winH = window.innerHeight;
     const canvasSize = Math.min(winW, winH);
 
-    // 气泡宽度 = 幕布 1/6，高度按比例
-    const BUBBLE_WIDTH = canvasSize / 6;
+    // 气泡宽度 = 幕布 1/5，高度按比例
+    const BUBBLE_WIDTH = canvasSize / 5;
     const BUBBLE_HEIGHT = BUBBLE_WIDTH / BUBBLE_ASPECT_RATIO;
 
     bubble.style.width = `${BUBBLE_WIDTH}px`;
