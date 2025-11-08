@@ -1,281 +1,134 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>给小怡的温馨提醒</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: #f0f8ff;
-            overflow: hidden;
-            font-family: "Microsoft YaHei", sans-serif;
-            height: 100vh;
-            width: 100vw;
-            position: relative;
-        }
-
-        .snowflake {
-            position: absolute;
-            color: #fff;
-            font-size: 16px;
-            top: -10px;
-            user-select: none;
-            pointer-events: none;
-            z-index: 1;
-            opacity: 0;
-        }
-
-        .tip-bubble {
-            position: absolute;
-            /* width/height/font-size 将由 JS 动态设置 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 9999;
-            opacity: 0;
-            transform: scale(0.9);
-            transition: opacity 0.3s, transform 0.3s;
-            pointer-events: none;
-        }
-
-        .tip-bubble.show {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .tip-bubble.converge {
-            transition: left 1.2s ease-out, top 1.2s ease-out, opacity 1.2s ease-out !important;
-            opacity: 0 !important;
-        }
-
-        .final-bubble {
-            position: absolute;
-            /* width/height/font-size 将由 JS 动态设置 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-weight: bold;
-            color: #fff;
-            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-            z-index: 10001;
-            opacity: 0;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%) scale(0.8);
-            transition: opacity 0.4s, transform 0.6s;
-        }
-
-        .final-bubble.show {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-        }
-
-        .final-bubble.hide {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0);
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>满屏温馨提醒</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: #f9f7f0;
+      overflow: hidden;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+    .tip-bubble {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-radius: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      opacity: 0;
+      transform: scale(0.9);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .tip-bubble.show { opacity: 1; transform: scale(1); }
+    .tip-bubble.converge {
+      transition: left 1.2s, top 1.2s, opacity 1.2s !important;
+      opacity: 0 !important;
+    }
+  </style>
 </head>
 <body>
 
 <script>
-// ========== 动态计算气泡尺寸 ==========
+// ========== 尺寸：用幕布（短边）定大小 ==========
 const SCREEN_W = window.innerWidth;
 const SCREEN_H = window.innerHeight;
 const CANVAS_SIZE = Math.min(SCREEN_W, SCREEN_H);
 
-// 基础比例：参考 140:60 → 宽高比 ≈ 2.333
-const BUBBLE_WIDTH = CANVAS_SIZE / 6;
-const BUBBLE_HEIGHT = BUBBLE_WIDTH * (60 / 140); // = BUBBLE_WIDTH / (140/60)
+const BUBBLE_WIDTH = CANVAS_SIZE / 5;
+const BUBBLE_HEIGHT = BUBBLE_WIDTH * (60 / 140); // 140:60
 const FONT_SIZE = Math.max(12, BUBBLE_HEIGHT / 4);
 
-// 最终气泡（稍大）
+// 最终气泡
 const FINAL_BUBBLE_WIDTH = CANVAS_SIZE / 5;
-const FINAL_BUBBLE_HEIGHT = FINAL_BUBBLE_WIDTH * (70 / 160); // 保持 160:70 比例
-const FINAL_FONT_SIZE = Math.max(14, FINAL_BUBBLE_HEIGHT / 4.4); // ≈16px when 70px high
+const FINAL_BUBBLE_HEIGHT = FINAL_BUBBLE_WIDTH * (70 / 160); // 160:70
+const FINAL_FONT_SIZE = Math.max(14, FINAL_BUBBLE_HEIGHT / 4.4);
 
-// ========== 雪花背景 ==========
-function createSnowflakes() {
-    const snowContainer = document.body;
-    const snowflakeCount = 80;
-
-    for (let i = 0; i < snowflakeCount; i++) {
-        const snow = document.createElement('div');
-        snow.className = 'snowflake';
-        snow.innerHTML = '❄️';
-
-        const left = Math.random() * 100;
-        snow.style.left = `${left}vw`;
-        const size = 8 + Math.random() * 12;
-        snow.style.fontSize = `${size}px`;
-
-        const duration = 5 + Math.random() * 8;
-        const delay = Math.random() * 5;
-        snow.style.animation = `fall ${duration}s linear ${delay}s infinite`;
-        snowContainer.appendChild(snow);
-    }
-
-    if (!document.getElementById('snow-style')) {
-        const style = document.createElement('style');
-        style.id = 'snow-style';
-        style.textContent = `
-            @keyframes fall {
-                0% { transform: translateY(-10px) rotate(0deg); opacity: 0; }
-                10% { opacity: 0.9; }
-                90% { opacity: 0.7; }
-                100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-}
-
-// ========== 弹窗逻辑 ==========
+// ========== 数据 ==========
+const tips = ['小怡多喝热水哦~', '小怡记得看天气预报~', '小怡每天都要开开心心的~',
+        '小怡天凉了多穿点衣服~', '小怡记得每天都要想我呀~', '小怡我每天都在呀~',
+        '小怡我想你啦~', '小怡早点睡觉不许熬夜~', '小怡期待我们见面的那天~',
+        '小怡好好吃饭哦~', '小怡照顾好自己~', '小怡想我了就告诉我~','小怡等你回消息~'
+	];
+const colors = ['#FFB6C1', '#87CEEB', '#90EE90', '#E6E6FA', '#FFFFE0',
+  '#DDA0DD', '#FF7F50', '#FFE4C4', '#7FFFD4', '#FFE4E1',
+  '#F0FFF0', '#FFF0F5', '#FDF5E6'];
 let isPaused = false;
-const tips = [
-    '小怡多喝热水哦~', '小怡记得看天气预报~', '小怡每天都要开开心心的~',
-    '小怡天凉了多穿点衣服~', '小怡记得每天都要想我呀~', '小怡我每天都在呀~',
-    '小怡我想你啦~', '小怡早点睡觉不许熬夜~', '小怡期待我们见面的那天~',
-    '小怡好好吃饭哦~', '小怡照顾好自己~', '小怡想我了就告诉我~'
-];
-
-const bgColors = [
-    '#ffc0cb', '#87ceeb', '#90ee90', '#e6e6fa', '#ffffe0',
-    '#dda0dd', '#ffa07a', '#ffe4c4', '#7fffd4', '#ffe4e1',
-    '#f0fff0', '#fff0f5', '#fdf5e6'
-];
-
 const allBubbles = [];
 
+// ========== 创建气泡（满屏位置！） ==========
 function createTip() {
-    if (isPaused) return;
+  if (isPaused) return;
+  const bubble = document.createElement('div');
+  bubble.className = 'tip-bubble';
+  bubble.textContent = tips[Math.floor(Math.random() * tips.length)];
+  bubble.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
 
-    const bubble = document.createElement('div');
-    bubble.className = 'tip-bubble';
-    
-    const tip = tips[Math.floor(Math.random() * tips.length)];
-    const bg = bgColors[Math.floor(Math.random() * bgColors.length)];
-    
-    bubble.textContent = tip;
-    bubble.style.backgroundColor = bg;
+  // 尺寸由幕布决定
+  bubble.style.width = `${BUBBLE_WIDTH}px`;
+  bubble.style.height = `${BUBBLE_HEIGHT}px`;
+  bubble.style.fontSize = `${FONT_SIZE}px`;
 
-    // ✅ 使用动态尺寸
-    bubble.style.width = `${BUBBLE_WIDTH}px`;
-    bubble.style.height = `${BUBBLE_HEIGHT}px`;
-    bubble.style.fontSize = `${FONT_SIZE}px`;
+  // 位置满屏随机
+  const x = Math.random() * (SCREEN_W - BUBBLE_WIDTH);
+  const y = Math.random() * (SCREEN_H - BUBBLE_HEIGHT);
+  bubble.style.left = `${x}px`;
+  bubble.style.top = `${y}px`;
 
-    const x = Math.random() * (SCREEN_W - BUBBLE_WIDTH);
-    const y = Math.random() * (SCREEN_H - BUBBLE_HEIGHT);
-    bubble.style.left = `${x}px`;
-    bubble.style.top = `${y}px`;
-
-    document.body.appendChild(bubble);
-    allBubbles.push(bubble);
-
-    setTimeout(() => bubble.classList.add('show'), 10);
+  document.body.appendChild(bubble);
+  allBubbles.push(bubble);
+  setTimeout(() => bubble.classList.add('show'), 10);
 }
 
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-        e.preventDefault();
-        isPaused = !isPaused;
-    }
+// 暂停
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    isPaused = !isPaused;
+  }
 });
 
-// ========== 启动 ==========
-createSnowflakes();
-
+// 启动
 let count = 0;
-const total = 400;
+const total = 200;
 const interval = setInterval(() => {
-    if (count >= total) {
-        clearInterval(interval);
-
-        setTimeout(() => {
-            // ✅ 汇聚到屏幕中心（减去动态宽高的一半）
-            const centerX = (SCREEN_W - BUBBLE_WIDTH) / 2;
-            const centerY = (SCREEN_H - BUBBLE_HEIGHT) / 2;
-
-            allBubbles.forEach(bubble => {
-                bubble.classList.add('converge');
-                bubble.style.left = `${centerX}px`;
-                bubble.style.top = `${centerY}px`;
-            });
-
-            setTimeout(() => {
-                allBubbles.forEach(b => b.remove());
-
-                const finalBubble = document.createElement('div');
-                finalBubble.className = 'final-bubble';
-                finalBubble.textContent = '立冬快乐呀！';
-
-                // ✅ 设置最终气泡动态尺寸
-                finalBubble.style.width = `${FINAL_BUBBLE_WIDTH}px`;
-                finalBubble.style.height = `${FINAL_BUBBLE_HEIGHT}px`;
-                finalBubble.style.fontSize = `${FINAL_FONT_SIZE}px`;
-
-                document.body.appendChild(finalBubble);
-
-                setTimeout(() => finalBubble.classList.add('show'), 10);
-
-                setTimeout(() => {
-                    finalBubble.classList.add('hide');
-                    setTimeout(() => {
-                        finalBubble.remove();
-
-                        setTimeout(() => {
-                            const thankText = '感谢观看';
-                            const container = document.createElement('div');
-                            container.style.position = 'absolute';
-                            container.style.left = '50%';
-                            container.style.top = '50%';
-                            container.style.transform = 'translate(-50%, -50%)';
-                            container.style.display = 'flex';
-                            container.style.justifyContent = 'center';
-                            container.style.alignItems = 'center';
-                            container.style.zIndex = '10002';
-                            // “感谢观看”字号也按比例缩放（可选）
-                            const THANK_FONT_SIZE = Math.max(24, CANVAS_SIZE * 0.05);
-                            container.style.fontSize = `${THANK_FONT_SIZE}px`;
-                            container.style.fontWeight = 'bold';
-                            container.style.color = '#ff6b9d';
-                            container.style.textShadow = '0 2px 6px rgba(0,0,0,0.2)';
-                            container.style.gap = '8px';
-                            document.body.appendChild(container);
-
-                            thankText.split('').forEach((char, index) => {
-                                const span = document.createElement('span');
-                                span.textContent = char;
-                                span.style.opacity = '0';
-                                span.style.transform = 'scale(0.5)';
-                                span.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out';
-                                container.appendChild(span);
-                                setTimeout(() => {
-                                    span.style.opacity = '1';
-                                    span.style.transform = 'scale(1)';
-                                }, index * 300);
-                            });
-                        }, 500);
-                    }, 500);
-                }, 1500);
-            }, 1200);
-        }, 1000);
-        return;
-    }
-    createTip();
-    count++;
-}, 60);
+  if (count >= total) {
+    clearInterval(interval);
+    // 汇聚到屏幕中心
+    const cx = SCREEN_W / 2 - BUBBLE_WIDTH / 2;
+    const cy = SCREEN_H / 2 - BUBBLE_HEIGHT / 2;
+    allBubbles.forEach(b => {
+      b.classList.add('converge');
+      b.style.left = `${cx}px`;
+      b.style.top = `${cy}px`;
+    });
+    setTimeout(() => {
+      allBubbles.forEach(b => b.remove());
+      const final = document.createElement('div');
+      final.textContent = '立冬快乐！';
+      final.style.cssText = `
+        position: fixed; left: 50%; top: 50%;
+        transform: translate(-50%, -50%);
+        width: ${FINAL_BUBBLE_WIDTH}px;
+        height: ${FINAL_BUBBLE_HEIGHT}px;
+        font-size: ${FINAL_FONT_SIZE}px;
+        background: linear-gradient(to right, #ff9a9e, #fad0c4);
+        color: white; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        z-index: 10000;
+      `;
+      document.body.appendChild(final);
+    }, 1200);
+    return;
+  }
+  createTip();
+  count++;
+}, 80);
 </script>
 
 </body>
